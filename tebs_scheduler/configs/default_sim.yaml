@@ -1,29 +1,69 @@
+# 默认仿真配置：作为所有实验的基础参数入口。
 simulation:
+  # 单个离散时隙长度，单位为秒；60 秒对应实验方案中的 1 min slot。
   delta_t_seconds: 60
+  # 滚动优化预测窗口长度，单位为 slot；H=12 表示向前看 12 分钟。
   horizon_slots: 12
-  simulation_slots: 120
+  # 默认仿真总时长，单位为 slot；194 slots 约覆盖两个 97 min 近地轨道周期。
+  simulation_slots: 194
+  # 异构多核配置：高性能核数量。
   high_performance_core_count: 2
+  # 异构多核配置：低功耗核数量。
   low_power_core_count: 2
-  sunlight_duration_slots: 6
-  eclipse_duration_slots: 6
+  # 日照区持续时长，单位为 slot；参考 3U CubeSat 论文中约 60 min 52 s 日照，按 60 s slot 取整为 61。
+  sunlight_duration_slots: 61
+  # 阴影区持续时长，单位为 slot；参考 3U CubeSat 论文中约 35 min 38 s 阴影，按 60 s slot 取整为 36。
+  eclipse_duration_slots: 36
+  # 内部能量统一使用焦耳，图表展示阶段再按需转换为 Wh。
   energy_unit: J
 
+# 能量模型默认参数，功率单位为 W，能量单位为 J。
 energy:
-  e_max_j: 180000.0
-  e_min_j: 36000.0
-  initial_energy_j: 126000.0
-  default_base_power_w: 25.0
-  default_max_solar_power_w: 100.0
+  # 电池能量上限；参考 Phoenix 3U CubeSat 的 40 Wh 电池，40 Wh * 3600 = 144000 J。
+  e_max_j: 144000.0
+  # 最低安全电量；参考 PATCOOL 论文中电池不低于 80% 的保护建议。
+  e_min_j: 115200.0
+  # 初始电量；默认按 90% SOC 启动仿真，避免初始即接近安全下限。
+  initial_energy_j: 129600.0
+  # 平台基础功耗，不包含计算任务功耗；参考 PATCOOL 3U CubeSat 最大基础工况约 3.6 W。
+  default_base_power_w: 3.6
+  # 日照区太阳能峰值采集功率；参考 Phoenix 3U CubeSat 朝日时约 14 W。
+  default_max_solar_power_w: 14.0
+  # 太阳能功率随轨道相位变化的模型；half_sine_orbit 表示日照段内按半正弦从低到高再到低变化，阴影段为 0。
+  solar_power_profile: half_sine_orbit
+  # 日照段边界处相对峰值功率下限；0.0 表示进入/离开日照时可接近 0 W。
+  solar_power_min_ratio: 0.0
 
+# 热模型默认参数，温度单位为摄氏度。
 thermal:
-  initial_temperature_celsius: 35.0
-  t_max_celsius: 75.0
+  # 仿真初始温度；按热分析论文中常用的 25 °C 初始工况设置。
+  initial_temperature_celsius: 25.0
+  # 热安全温度上限；参考 CubeSat 电子设备/有效载荷常见 70 °C 级工作上限。
+  t_max_celsius: 70.0
+  # 一阶热模型等效环境温度；用于简化散热近似，不代表真实空间环境温度。
   ambient_temperature_celsius: 25.0
-  thermal_capacity_j_per_c: 1200.0
+  # 等效热容；参考 3U CubeSat 约 3.4 kg 平台质量和铝结构比热量级，取近似 lumped 参数。
+  thermal_capacity_j_per_c: 3000.0
+  # 冷却系数，数值越大表示向等效环境散热越快；后续需用热仿真或实测数据标定。
   cooling_coeff: 0.01
 
+# Gurobi 默认求解参数。
 gurobi:
+  # 单个滚动窗口最大求解时间，单位为秒。
   gurobi_time_limit: 5.0
+  # 相对 MIP gap；0.01 表示允许 1% gap，相对最优性差距
+  # 通俗说，Gurobi 求 MILP 时会同时维护：
+  # 当前找到的最好可行解，也就是 incumbent
+  # 理论上的最优下界或上界，也就是 bound
+  # 当二者差距小于等于 1% 时，Gurobi 可以认为解已经足够接近最优并提前停止。
+  #
+  # 这个参数越小，解质量要求越高，但求解可能越慢。比如：
+  #
+  # 0.05：允许 5% gap，速度更快，解可能略差
+  # 0.01：允许 1% gap，比较平衡
+  # 0.0：要求严格证明最优，通常更慢
   gurobi_mip_gap: 0.01
+  # 线程数；0 表示由 Gurobi 自动选择。
   gurobi_threads: 0
+  # 是否输出 Gurobi 求解日志。
   gurobi_verbose: false

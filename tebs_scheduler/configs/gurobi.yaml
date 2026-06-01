@@ -1,22 +1,31 @@
+# Gurobi 求解器参数模板：供后续敏感性实验或批处理运行器选择。
 default:
+  # 默认单次求解时间限制，单位为秒。
   gurobi_time_limit: 5.0
+  # 默认相对 MIP gap；0.01 表示允许 1% gap。
   gurobi_mip_gap: 0.01
+  # 线程数；0 表示由 Gurobi 自动选择。
   gurobi_threads: 0
+  # 是否输出求解日志。
   gurobi_verbose: false
 
+# 不同求解策略 profile，用于速度和解质量之间的取舍。
 profiles:
+  # 快速验证 profile：更短时间限制、更宽松 gap。
   fast:
     gurobi_time_limit: 1.0
     gurobi_mip_gap: 0.05
     gurobi_threads: 0
     gurobi_verbose: false
 
+  # 默认平衡 profile：与 default 配置保持一致。
   balanced:
     gurobi_time_limit: 5.0
     gurobi_mip_gap: 0.01
     gurobi_threads: 0
     gurobi_verbose: false
 
+  # 高质量 profile：更长求解时间、更严格 gap。
   quality:
     gurobi_time_limit: 10.0
     gurobi_mip_gap: 0.0

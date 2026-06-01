@@ -12,9 +12,22 @@ def test_round2_default_values() -> None:
     assert isinstance(cfg, ConfigBundle)
     assert cfg.simulation.delta_t_seconds == 60
     assert cfg.simulation.horizon_slots == 12
+    assert cfg.simulation.simulation_slots == 194
     assert cfg.simulation.high_performance_core_count == 2
     assert cfg.simulation.low_power_core_count == 2
     assert cfg.simulation.core_count == 4
+    assert cfg.simulation.sunlight_duration_slots == 61
+    assert cfg.simulation.eclipse_duration_slots == 36
+    assert cfg.energy.e_max_j == 144000.0
+    assert cfg.energy.e_min_j == 115200.0
+    assert cfg.energy.initial_energy_j == 129600.0
+    assert cfg.energy.default_base_power_w == 3.6
+    assert cfg.energy.default_max_solar_power_w == 14.0
+    assert cfg.energy.solar_power_profile == "half_sine_orbit"
+    assert cfg.energy.solar_power_min_ratio == 0.0
+    assert cfg.thermal.initial_temperature_celsius == 25.0
+    assert cfg.thermal.t_max_celsius == 70.0
+    assert cfg.thermal.thermal_capacity_j_per_c == 3000.0
     assert cfg.gurobi.gurobi_time_limit == 5.0
     assert cfg.simulation.energy_unit == "J"
 
@@ -30,8 +43,12 @@ def test_missing_sections_fallback_to_reasonable_defaults(tmp_path) -> None:
     cfg = load_config(cfg_path)
     assert cfg.simulation.simulation_slots == 180
     assert cfg.simulation.delta_t_seconds == 60
+    assert cfg.simulation.sunlight_duration_slots == 61
+    assert cfg.simulation.eclipse_duration_slots == 36
     assert cfg.gurobi.gurobi_time_limit == 5.0
-    assert cfg.energy.e_min_j == 36000.0
+    assert cfg.energy.e_min_j == 115200.0
+    assert cfg.energy.default_max_solar_power_w == 14.0
+    assert cfg.energy.solar_power_profile == "half_sine_orbit"
 
 
 def test_missing_file_raises_clear_error(tmp_path) -> None:

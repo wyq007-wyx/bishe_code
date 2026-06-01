@@ -1,18 +1,25 @@
+# 场景配置模板：后续 task_factory 和 experiment_runner 可按场景读取任务规模与压力等级。
 scenarios:
+  # S1：轻负载场景，用于最小闭环、冒烟测试和低压力对照。
   S1_light:
+    # 场景默认仿真时长，单位为 slot。
     simulation_slots: 120
-    description: "Light load scenario for smoke testing."
+    description: "轻负载场景，用于基础冒烟测试。"
+    # 随机生成任务数量范围：[最小值, 最大值]。
     task_count_range: [8, 16]
+    # 高功耗任务占比，用于控制场景压力。
     high_power_task_ratio: 0.2
 
+  # S2：混合负载场景，作为常规实验的默认对比场景。
   S2_mixed:
     simulation_slots: 180
-    description: "Mixed load default comparison scenario."
+    description: "混合负载默认对比场景。"
     task_count_range: [16, 28]
     high_power_task_ratio: 0.45
 
+  # S3：高压力场景，用于检验能量和热约束紧张时的调度效果。
   S3_stress:
     simulation_slots: 240
-    description: "High stress scenario with more urgent and high-power tasks."
+    description: "高压力场景，包含更多高紧迫度和高功耗任务。"
     task_count_range: [28, 40]
     high_power_task_ratio: 0.7
