@@ -1,4 +1,4 @@
-﻿"""TEBS scheduling experiment core package."""
+"""TEBS 调度实验核心包。"""
 
 from .config import (
     ConfigBundle,
@@ -12,6 +12,8 @@ from .config import (
     load_config_from_mapping,
 )
 from .models import (
+    HIGH_PERFORMANCE_CORE_TYPE,
+    LOW_POWER_CORE_TYPE,
     Core,
     ScheduleDecision,
     ScheduleTrace,
@@ -19,6 +21,7 @@ from .models import (
     SystemState,
     Task,
     TaskBlock,
+    build_cores_from_type_counts,
 )
 
 __all__ = [
@@ -34,6 +37,9 @@ __all__ = [
     "Task",
     "TaskBlock",
     "Core",
+    "HIGH_PERFORMANCE_CORE_TYPE",
+    "LOW_POWER_CORE_TYPE",
+    "build_cores_from_type_counts",
     "SystemState",
     "ScheduleDecision",
     "ScheduleTrace",

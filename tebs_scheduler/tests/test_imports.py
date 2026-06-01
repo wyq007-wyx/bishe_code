@@ -16,5 +16,6 @@ def _iter_tebs_modules() -> list[str]:
 
 
 def test_tebs_modules_are_importable() -> None:
+    """验证 tebs 包下所有模块都可以被成功导入。"""
     for module_name in _iter_tebs_modules():
         importlib.import_module(module_name)

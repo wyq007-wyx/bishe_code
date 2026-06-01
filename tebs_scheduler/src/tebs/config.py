@@ -18,7 +18,8 @@ class SimulationConfig:
     delta_t_seconds: int = 60
     horizon_slots: int = 12
     simulation_slots: int = 120
-    core_count: int = 4
+    high_performance_core_count: int = 2
+    low_power_core_count: int = 2
     sunlight_duration_slots: int = 6
     eclipse_duration_slots: int = 6
     energy_unit: str = "J"
@@ -27,7 +28,12 @@ class SimulationConfig:
         _require_positive_int(self.delta_t_seconds, "delta_t_seconds")
         _require_positive_int(self.horizon_slots, "horizon_slots")
         _require_positive_int(self.simulation_slots, "simulation_slots")
-        _require_positive_int(self.core_count, "core_count")
+        _require_non_negative_int(self.high_performance_core_count, "high_performance_core_count")
+        _require_non_negative_int(self.low_power_core_count, "low_power_core_count")
+        if self.high_performance_core_count + self.low_power_core_count <= 0:
+            raise ConfigError(
+                "high_performance_core_count + low_power_core_count must be > 0."
+            )
         _require_non_negative_int(self.sunlight_duration_slots, "sunlight_duration_slots")
         _require_non_negative_int(self.eclipse_duration_slots, "eclipse_duration_slots")
         if self.sunlight_duration_slots + self.eclipse_duration_slots <= 0:
@@ -36,6 +42,11 @@ class SimulationConfig:
             )
         if self.energy_unit != "J":
             raise ConfigError("energy_unit must be 'J' for internal consistency.")
+
+    @property
+    def core_count(self) -> int:
+        """总核心数量（兼容旧代码访问）。"""
+        return self.high_performance_core_count + self.low_power_core_count
 
 
 @dataclass(slots=True, frozen=True)
@@ -122,11 +133,14 @@ def load_config_from_mapping(payload: Mapping[str, Any] | None) -> ConfigBundle:
     thermal_data = _as_mapping(data.get("thermal"), section_name="thermal")
     energy_data = _as_mapping(data.get("energy"), section_name="energy")
 
+    high_performance_core_count, low_power_core_count = _resolve_core_type_counts(simulation_data)
+
     simulation = SimulationConfig(
         delta_t_seconds=_read_int(simulation_data, "delta_t_seconds", 60),
         horizon_slots=_read_int(simulation_data, "horizon_slots", 12),
         simulation_slots=_read_int(simulation_data, "simulation_slots", 120),
-        core_count=_read_int(simulation_data, "core_count", 4),
+        high_performance_core_count=high_performance_core_count,
+        low_power_core_count=low_power_core_count,
         sunlight_duration_slots=_read_int(simulation_data, "sunlight_duration_slots", 6),
         eclipse_duration_slots=_read_int(simulation_data, "eclipse_duration_slots", 6),
         energy_unit=_read_str(simulation_data, "energy_unit", "J").upper(),
@@ -190,6 +204,22 @@ def _as_mapping(value: Any, *, section_name: str) -> Mapping[str, Any]:
     if not isinstance(value, Mapping):
         raise ConfigError(f"Section '{section_name}' must be a mapping.")
     return value
+
+
+def _resolve_core_type_counts(simulation_section: Mapping[str, Any]) -> tuple[int, int]:
+    """解析两类核心数量，并兼容旧版 core_count 配置。"""
+    has_high_key = "high_performance_core_count" in simulation_section
+    has_low_key = "low_power_core_count" in simulation_section
+
+    if has_high_key or has_low_key:
+        high = _read_int(simulation_section, "high_performance_core_count", 2)
+        low = _read_int(simulation_section, "low_power_core_count", 2)
+        return high, low
+
+    legacy_core_count = _read_int(simulation_section, "core_count", 4)
+    high = legacy_core_count // 2
+    low = legacy_core_count - high
+    return high, low
 
 
 def _read_int(section: Mapping[str, Any], key: str, default: int) -> int:

@@ -2,7 +2,8 @@ simulation:
   delta_t_seconds: 60
   horizon_slots: 12
   simulation_slots: 120
-  core_count: 4
+  high_performance_core_count: 2
+  low_power_core_count: 2
   sunlight_duration_slots: 6
   eclipse_duration_slots: 6
   energy_unit: J
