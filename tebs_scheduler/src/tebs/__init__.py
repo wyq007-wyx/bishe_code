@@ -23,6 +23,23 @@ from .models import (
     TaskBlock,
     build_cores_from_type_counts,
 )
+from .task_factory import (
+    HIGH_POWER_TASK_TYPE_IDS,
+    TASK_TYPE_SPECS,
+    ScenarioSpec,
+    TaskFactoryError,
+    TaskTypeSpec,
+    count_high_power_tasks,
+    default_scenarios_path,
+    default_task_type_specs,
+    generate_task_set,
+    high_power_task_ratio,
+    is_high_power_task_type,
+    load_scenario_specs,
+    normalize_scenario_name,
+    task_type_id_from_task,
+    task_type_id_from_task_id,
+)
 
 __all__ = [
     "ConfigBundle",
@@ -44,4 +61,19 @@ __all__ = [
     "ScheduleDecision",
     "ScheduleTrace",
     "SolverTrace",
+    "TaskFactoryError",
+    "TaskTypeSpec",
+    "ScenarioSpec",
+    "TASK_TYPE_SPECS",
+    "HIGH_POWER_TASK_TYPE_IDS",
+    "default_task_type_specs",
+    "default_scenarios_path",
+    "load_scenario_specs",
+    "normalize_scenario_name",
+    "generate_task_set",
+    "task_type_id_from_task_id",
+    "task_type_id_from_task",
+    "is_high_power_task_type",
+    "count_high_power_tasks",
+    "high_power_task_ratio",
 ]
