@@ -1,0 +1,28 @@
+simulation:
+  delta_t_seconds: 60
+  horizon_slots: 12
+  simulation_slots: 120
+  core_count: 4
+  sunlight_duration_slots: 6
+  eclipse_duration_slots: 6
+  energy_unit: J
+
+energy:
+  e_max_j: 180000.0
+  e_min_j: 36000.0
+  initial_energy_j: 126000.0
+  default_base_power_w: 25.0
+  default_max_solar_power_w: 100.0
+
+thermal:
+  initial_temperature_celsius: 35.0
+  t_max_celsius: 75.0
+  ambient_temperature_celsius: 25.0
+  thermal_capacity_j_per_c: 1200.0
+  cooling_coeff: 0.01
+
+gurobi:
+  gurobi_time_limit: 5.0
+  gurobi_mip_gap: 0.01
+  gurobi_threads: 0
+  gurobi_verbose: false

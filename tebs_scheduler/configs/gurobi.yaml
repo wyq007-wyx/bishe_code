@@ -1,0 +1,24 @@
+default:
+  gurobi_time_limit: 5.0
+  gurobi_mip_gap: 0.01
+  gurobi_threads: 0
+  gurobi_verbose: false
+
+profiles:
+  fast:
+    gurobi_time_limit: 1.0
+    gurobi_mip_gap: 0.05
+    gurobi_threads: 0
+    gurobi_verbose: false
+
+  balanced:
+    gurobi_time_limit: 5.0
+    gurobi_mip_gap: 0.01
+    gurobi_threads: 0
+    gurobi_verbose: false
+
+  quality:
+    gurobi_time_limit: 10.0
+    gurobi_mip_gap: 0.0
+    gurobi_threads: 0
+    gurobi_verbose: false

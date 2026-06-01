@@ -1,0 +1,18 @@
+scenarios:
+  S1_light:
+    simulation_slots: 120
+    description: "Light load scenario for smoke testing."
+    task_count_range: [8, 16]
+    high_power_task_ratio: 0.2
+
+  S2_mixed:
+    simulation_slots: 180
+    description: "Mixed load default comparison scenario."
+    task_count_range: [16, 28]
+    high_power_task_ratio: 0.45
+
+  S3_stress:
+    simulation_slots: 240
+    description: "High stress scenario with more urgent and high-power tasks."
+    task_count_range: [28, 40]
+    high_power_task_ratio: 0.7
