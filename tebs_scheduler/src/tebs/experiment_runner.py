@@ -12,6 +12,7 @@ from .baseline_fcfs_gurobi import FcfsGurobiScheduler
 from .baseline_intermittent import FcfsIntermittentScheduler
 from .config import ConfigBundle, load_config
 from .environment import OrbitEnvironment, environment_from_config
+from .learning.hybrid_scheduler import HybridGurobiTcnScheduler, TcnScheduler
 from .metrics import compute_metrics
 from .models import Core, SolverTrace, build_cores_from_type_counts
 from .rhc_milp_gurobi import RhcMilpGurobiScheduler
@@ -116,6 +117,11 @@ def normalize_method_name(method_name: str) -> str:
         "rhc": "rhc_milp_gurobi",
         "rhc_gurobi": "rhc_milp_gurobi",
         "rhcmilpgurobi": "rhc_milp_gurobi",
+        "tcn": "tcn_scheduler",
+        "tcnscheduler": "tcn_scheduler",
+        "hybrid": "hybrid_gurobi_tcn",
+        "hybridgurobitcn": "hybrid_gurobi_tcn",
+        "hybrid_tcn": "hybrid_gurobi_tcn",
     }
     return aliases.get(key, key)
 
@@ -462,6 +468,8 @@ _METHOD_FACTORIES: dict[str, SchedulerFactory] = {
     "fcfs_intermittent": lambda cfg: FcfsIntermittentScheduler(),
     "fcfs_gurobi": lambda cfg: FcfsGurobiScheduler(config=cfg),
     "rhc_milp_gurobi": lambda cfg: RhcMilpGurobiScheduler(config=cfg),
+    "tcn_scheduler": lambda cfg: TcnScheduler(config=cfg),
+    "hybrid_gurobi_tcn": lambda cfg: HybridGurobiTcnScheduler(config=cfg),
 }
 
 
