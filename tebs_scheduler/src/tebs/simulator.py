@@ -9,7 +9,7 @@ from .config import ConfigBundle, load_config
 from .energy_model import update_energy
 from .environment import EnvironmentSlot, OrbitEnvironment, ensure_environment_slots, environment_from_config
 from .models import Core, ScheduleDecision, ScheduleTrace, SolverTrace, SystemState, Task, TaskBlock
-from .scheduler_base import BaseScheduler, SchedulerResult, validate_scheduler_result
+from .scheduler_base import BaseScheduler, DecisionRuntimeEffect, SchedulerResult, validate_scheduler_result
 from .thermal_model import update_temperature
 
 
@@ -41,7 +41,7 @@ class SimulationResult:
 
 @dataclass(slots=True)
 class _BlockProgress:
-    remaining_slots: int | None = None
+    remaining_slots: float | None = None
     completed: bool = False
 
 
@@ -117,6 +117,7 @@ def run_simulation(
         trace = result.to_schedule_trace(current_time)
         compute_power_w = _apply_decisions(
             decisions=trace.decisions,
+            runtime_effect_by_core=result.runtime_effect_by_core or {},
             current_time=current_time,
             task_by_id=task_by_id,
             progress=progress,
@@ -167,6 +168,7 @@ def run_simulation(
 def _apply_decisions(
     *,
     decisions: Sequence[ScheduleDecision],
+    runtime_effect_by_core: dict[str, DecisionRuntimeEffect],
     current_time: int,
     task_by_id: dict[str, Task],
     progress: dict[tuple[str, int], _BlockProgress],
@@ -200,9 +202,16 @@ def _apply_decisions(
         if block_progress.completed:
             raise SimulationError(f"Task {task.task_id} block {block.block_id} is already complete.")
         if block_progress.remaining_slots is None:
-            block_progress.remaining_slots = block.duration_by_core[decision.core_id]
-        block_progress.remaining_slots -= 1
-        compute_power_w += block.power_by_core[decision.core_id]
+            block_progress.remaining_slots = float(block.duration_by_core[decision.core_id])
+        runtime_effect = runtime_effect_by_core.get(decision.core_id)
+        progress_slots = runtime_effect.progress_slots if runtime_effect is not None else 1.0
+        decision_power_w = (
+            runtime_effect.compute_power_w
+            if runtime_effect is not None and runtime_effect.compute_power_w is not None
+            else block.power_by_core[decision.core_id]
+        )
+        block_progress.remaining_slots -= progress_slots
+        compute_power_w += decision_power_w
         if block_progress.remaining_slots <= 0:
             block_progress.completed = True
             slot_completed_blocks.append(block_key)

@@ -1,5 +1,23 @@
 """TEBS 调度实验核心包。"""
 
+from .baseline_dvfs import (
+    DEFAULT_FREQUENCY_LEVELS,
+    DvfsBaselineError,
+    DvfsThresholds,
+    FcfsDvfsScheduler,
+    FrequencyLevel,
+    progress_increment_slots,
+    scaled_power_w,
+    select_frequency_level,
+)
+from .baseline_intermittent import (
+    FcfsIntermittentScheduler,
+    IntermittentBaselineError,
+    IntermittentPauseState,
+    IntermittentThresholds,
+    should_pause,
+    should_resume,
+)
 from .config import (
     ConfigBundle,
     ConfigError,
@@ -50,6 +68,7 @@ from .models import (
 )
 from .scheduler_base import (
     BaseScheduler,
+    DecisionRuntimeEffect,
     SafeIdleScheduler,
     SchedulerError,
     SchedulerResult,
@@ -90,6 +109,20 @@ from .thermal_model import (
 )
 
 __all__ = [
+    "DEFAULT_FREQUENCY_LEVELS",
+    "DvfsBaselineError",
+    "DvfsThresholds",
+    "FcfsDvfsScheduler",
+    "FrequencyLevel",
+    "progress_increment_slots",
+    "scaled_power_w",
+    "select_frequency_level",
+    "FcfsIntermittentScheduler",
+    "IntermittentBaselineError",
+    "IntermittentPauseState",
+    "IntermittentThresholds",
+    "should_pause",
+    "should_resume",
     "ConfigBundle",
     "ConfigError",
     "SimulationConfig",
@@ -127,6 +160,7 @@ __all__ = [
     "ScheduleTrace",
     "SolverTrace",
     "BaseScheduler",
+    "DecisionRuntimeEffect",
     "SafeIdleScheduler",
     "SchedulerError",
     "SchedulerResult",

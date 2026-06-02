@@ -14,19 +14,36 @@ class SchedulerError(ValueError):
 
 
 @dataclass(slots=True)
+class DecisionRuntimeEffect:
+    """Optional simulator effect attached to one core decision."""
+
+    progress_slots: float = 1.0
+    compute_power_w: float | None = None
+
+    def __post_init__(self) -> None:
+        if self.progress_slots <= 0:
+            raise SchedulerError("progress_slots must be > 0.")
+        if self.compute_power_w is not None and self.compute_power_w < 0:
+            raise SchedulerError("compute_power_w must be >= 0 when provided.")
+
+
+@dataclass(slots=True)
 class SchedulerResult:
     """Scheduler output for one time slot."""
 
     decisions: tuple[ScheduleDecision, ...]
     solver_trace: SolverTrace | None = None
+    runtime_effect_by_core: dict[str, DecisionRuntimeEffect] | None = None
 
     def __init__(
         self,
         decisions: Sequence[ScheduleDecision],
         solver_trace: SolverTrace | None = None,
+        runtime_effect_by_core: dict[str, DecisionRuntimeEffect] | None = None,
     ) -> None:
         self.decisions = tuple(decisions)
         self.solver_trace = solver_trace
+        self.runtime_effect_by_core = runtime_effect_by_core
 
     def to_schedule_trace(self, time_slot: int) -> ScheduleTrace:
         return ScheduleTrace(time_slot=time_slot, decisions=list(self.decisions))
@@ -120,6 +137,7 @@ def validate_scheduler_result(
 
 __all__ = [
     "BaseScheduler",
+    "DecisionRuntimeEffect",
     "SafeIdleScheduler",
     "SchedulerError",
     "SchedulerResult",
