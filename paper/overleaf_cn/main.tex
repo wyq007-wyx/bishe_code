@@ -1,0 +1,677 @@
+% !TeX program = xelatex
+% Overleaf 编译方式：Menu -> Compiler -> XeLaTeX
+% 本文件为自包含中文论文草稿：图表使用 pgfplots/TikZ 与内嵌模拟数据生成，不依赖外部图片。
+
+\begin{filecontents*}{sim_trace.dat}
+slot solar energy_rhc energy_fcfs temp_rhc temp_fcfs power_rhc power_fcfs
+0   0.0 36.0 36.0 25.0 25.0 4.2 4.2
+12  5.3 36.8 36.2 30.6 34.8 6.8 10.5
+24 10.6 38.4 37.0 36.2 46.5 8.5 13.6
+36 13.8 39.8 37.6 42.0 59.0 9.1 16.2
+48 11.7 40.0 36.8 47.5 67.8 7.4 15.5
+60  3.2 38.9 35.7 51.0 72.0 5.8 12.6
+72  0.0 36.9 33.4 54.0 74.2 4.7 10.1
+84  0.0 35.1 31.8 56.0 71.6 4.0 7.5
+96  0.0 34.0 30.9 57.2 69.8 3.6 5.0
+108 6.1 35.7 32.4 53.8 68.6 5.6 9.8
+120 12.4 37.9 34.1 50.4 71.2 8.0 15.2
+132 13.5 39.4 35.0 48.2 73.5 8.7 16.0
+144  9.2 39.0 34.4 51.6 70.4 6.2 11.4
+156  0.0 37.1 32.5 55.8 72.1 4.4 8.8
+168  0.0 35.6 31.1 57.0 69.5 3.8 5.8
+180  3.5 36.8 32.8 54.2 68.0 5.3 9.6
+\end{filecontents*}
+
+\begin{filecontents*}{scale.dat}
+tasks gurobi_avg gurobi_p95 optimal_ratio tcn_ms hybrid_gap
+20  0.42 1.10 98  1.6 1.8
+50  1.87 4.30 83  1.9 2.4
+100 4.72 5.00 54  2.4 3.2
+200 5.00 5.00 23  3.1 4.7
+500 5.00 5.00  4  5.8 7.9
+\end{filecontents*}
+
+\begin{filecontents*}{horizon.dat}
+H response tardiness solve_time opt_ratio violation
+6  31.4 96.2 0.75 95 1.6
+8  29.2 82.5 1.12 90 0.9
+12 27.6 73.4 1.87 83 0.1
+16 27.1 72.0 3.40 68 0.1
+24 26.9 70.8 5.00 45 0.1
+\end{filecontents*}
+
+\documentclass[conference]{IEEEtran}
+
+\usepackage[UTF8,scheme=plain,fontset=fandol]{ctex}
+\usepackage{amsmath,amssymb,bm}
+\usepackage{booktabs,multirow,array,tabularx}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{tikz}
+\usepackage{pgfplots}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{url}
+\usepackage[hidelinks]{hyperref}
+\usepackage{cite}
+
+\usetikzlibrary{arrows.meta,positioning,shapes.geometric,calc,fit,backgrounds,patterns}
+\usepgfplotslibrary{groupplots,statistics}
+\pgfplotsset{compat=1.18}
+
+\definecolor{methodblue}{RGB}{45,95,180}
+\definecolor{energygreen}{RGB}{53,145,92}
+\definecolor{thermalred}{RGB}{207,80,74}
+\definecolor{warnorange}{RGB}{230,143,48}
+\definecolor{softgray}{RGB}{245,247,250}
+\definecolor{linegray}{RGB}{112,118,128}
+\definecolor{purple}{RGB}{118,88,180}
+
+\newcommand{\method}{\textsc{TEBS-RHC}}
+\newcommand{\rhc}{\texttt{RHC-MILP}}
+\newcommand{\rhcfull}{\texttt{RHC-MILP-Gurobi}}
+\newcommand{\fcfsg}{\texttt{FCFS-Gurobi}}
+\newcommand{\dvfs}{\texttt{FCFS-DVFS}}
+\newcommand{\intermittent}{\texttt{FCFS-Intermittent}}
+\newcommand{\tcns}{\texttt{TCN-Scheduler}}
+\newcommand{\hybrid}{\texttt{Hybrid-Gurobi-TCN}}
+
+\title{热-电协同感知的在轨任务智能调度方法研究}
+
+\author{
+\IEEEauthorblockN{作者姓名}
+\IEEEauthorblockA{
+学院/单位名称\\
+邮箱：yourname@example.com
+}
+}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+小型卫星正在从“数据采集平台”转向“在轨边缘计算平台”，云检测、目标识别、变化检测、图像压缩和 SAR 后端处理等任务开始在星上执行。然而，小卫星平台受到周期性太阳能采集、有限电池容量和弱散热能力的共同限制，持续高功耗计算容易导致阴影区电量不足、热量累积和热降频。已有方法多采用动态电压频率调节或间歇计算策略，在系统接近约束边界时被动降低频率或暂停任务，难以充分利用任务异构性和轨道环境的可预测性。本文参考 Li 等关于实时卫星计算能量与热特性的论文组织形式，围绕“热-电约束分析、系统设计、实现与评估”的主线，提出一种热-电协同感知的在轨任务滚动调度方法。该方法将星上载荷处理任务划分为可在自然数据边界切换的任务块，在每个决策时刻利用未来预测窗口内的太阳能输入、基础功耗和热预算，建立混合整数规划模型，联合优化任务块启动时间、执行状态和异构核心分配。本文进一步设计固定队列强基线、DVFS 基线、间歇计算基线以及大规模场景下的 TCN 近似调度器，并用模拟实验数据构造图表，展示所提方法在降低响应时间、拖期惩罚、热约束违反和能量约束违反方面的潜在优势。
+\end{abstract}
+
+\begin{IEEEkeywords}
+星上计算，任务调度，滚动时域优化，混合整数规划，能量约束，热约束，异构多核
+\end{IEEEkeywords}
+
+\section{引言}
+
+小型卫星在地球观测、海事监管、灾害响应和实时通信中承担越来越多的任务。随着遥感载荷分辨率提高和星上智能处理需求增长，传统抗辐照处理器难以满足复杂算法的计算需求，低功耗高性能的商用现货计算设备逐渐被引入星载系统。Li 等人在实时卫星计算研究中指出，小卫星平台上的计算效率不仅取决于处理器性能，还受到能量采集、电池供电和热设计的强烈影响。其论文结构先通过真实卫星测量揭示能量与热约束，再给出应用感知的功率管理与热控制系统，最后通过实验评估性能提升。本文沿用这一组织思路，但研究焦点从设备频率控制转向任务级前瞻调度。
+
+星上任务与地面边缘任务的关键区别在于资源状态具有强周期性和强耦合性。日照区太阳能输入增加，系统可同时为负载供电并为电池充电；阴影区太阳能输入为零，持续高功耗计算会快速消耗电池余量。另一方面，空间环境缺乏对流散热，芯片和载荷温度随计算功耗累积，可能触发热降频或保护性停机。因此，仅根据当前时隙做局部决策会产生短视行为：系统可能在日照末期继续执行高功耗任务，导致阴影区能量不足；也可能在温度已经较高时继续执行高产热任务，导致后续多个时隙被迫降频或暂停。
+
+本文研究的任务不是姿态控制、轨道控制、电源管理等平台基础任务，而是云检测、云去除与压缩、SAR 船舶检测、光学目标检测、变化检测、图像压缩和 SAR 后端处理等载荷处理任务。这类任务通常具有软截止期和价值衰减特性，并可在 tile、patch、burst、granule 或处理阶段等自然边界处暂停、恢复和重排。基于这一特征，本文提出热-电协同感知的滚动时域任务调度方法 \method：当预测到未来热预算或电量不足时，调度器主动调整任务执行顺序和核心分配，将高功耗任务安排到更适合的资源窗口，把低功耗任务填充到约束紧张时段，从而平滑功耗和热负载。
+
+本文贡献概括如下：
+\begin{itemize}
+  \item 面向星载异构多核平台，建立包含任务块顺序、多核容量、电池能量状态和热预算的块级任务调度模型。
+  \item 设计基于滚动时域混合整数规划的 \rhcfull{} 方法，在有限预测窗口内联合优化任务重排、任务块启动时间和任务-核心匹配。
+  \item 构建 \fcfsg{}、\dvfs{}、\intermittent{}、\tcns{} 和 \hybrid{} 等对比方法，区分任务重排、异构核心匹配、设备级调频和学习近似的贡献。
+  \item 给出可在 Overleaf 编译的中文论文框架，并用模拟数据生成主结果、轨迹、甘特图、求解器扩展性、窗口敏感性和消融实验图表。
+\end{itemize}
+
+\section{热-电特性分析}
+
+\subsection{参考论文组织形式}
+
+Li 等论文的核心叙述路径是：首先通过测量研究揭示小卫星 COTS 计算的能量与热瓶颈，然后提出应用感知的功率管理和热控制系统，最后通过地面测试床和轨道数据评估性能。本文参考这一组织形式，但由于当前研究处于算法与仿真实验阶段，将“测量研究”转换为“基于文献参数和项目配置的热-电约束分析”，并在后续章节用模拟实验数据验证调度策略。
+
+\begin{table}[t]
+\centering
+\caption{Li 等论文组织形式与本文章节的对应关系}
+\label{tab:org-map}
+\begin{tabularx}{\linewidth}{p{0.31\linewidth}X}
+\toprule
+Li 等论文结构 & 本文对应内容 \\
+\midrule
+Introduction & 说明星上计算热-电约束与任务级调度动机 \\
+Measurement Study & 分析日照/阴影、能量采集、温度累积和固定队列问题 \\
+System Design & 设计热-电协同滚动调度器 \method{} \\
+Implementation and Evaluation & 给出模块化实现计划、实验场景、基线和模拟评估 \\
+Related Work / Conclusions & 总结已有设备级方法、多核调度和学习调度方法 \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{能量时变性与热累积}
+
+图~\ref{fig:trace-motivation} 使用模拟数据展示一个 180 slot 轨道片段中的太阳能输入、电量、温度和计算功耗。模拟参数来自实验方案与默认配置：时隙长度为 60 s，太阳能峰值功率为 14 W，电池容量为 40 Wh，最低安全电量约为 32 Wh，温度上限为 $70^\circ$C。固定队列基线在高功耗任务集中释放时持续执行队首任务，虽然能在短期内提高计算功率，但在阴影区更快消耗电池，并使温度逼近或超过安全阈值。相比之下，\method{} 根据未来窗口调整任务组合，使电量下降更平滑，温度峰值更低。
+
+\begin{figure*}[t]
+\centering
+\begin{tikzpicture}
+\begin{groupplot}[
+  group style={group size=2 by 2, horizontal sep=1.0cm, vertical sep=1.0cm},
+  width=0.47\linewidth,
+  height=4.2cm,
+  xmin=0,xmax=180,
+  grid=major,
+  grid style={draw=linegray!18},
+  tick label style={font=\scriptsize},
+  label style={font=\small},
+  legend style={font=\scriptsize}
+]
+\nextgroupplot[ylabel={太阳能功率(W)}, ymin=0,ymax=15]
+\addplot[energygreen, very thick, mark=none] table[x=slot,y=solar] {sim_trace.dat};
+\addlegendentry{$P_{\mathrm{harv}}$}
+\nextgroupplot[ylabel={计算功耗(W)}, ymin=0,ymax=18]
+\addplot[methodblue, very thick] table[x=slot,y=power_rhc] {sim_trace.dat};
+\addplot[thermalred, thick, dashed] table[x=slot,y=power_fcfs] {sim_trace.dat};
+\legend{\method{},固定队列}
+\nextgroupplot[xlabel={时间(slot)}, ylabel={电量(Wh)}, ymin=30,ymax=42]
+\addplot[methodblue, very thick] table[x=slot,y=energy_rhc] {sim_trace.dat};
+\addplot[thermalred, thick, dashed] table[x=slot,y=energy_fcfs] {sim_trace.dat};
+\addplot[linegray, dotted, thick] coordinates {(0,32) (180,32)};
+\legend{\method{},固定队列,$E_{\min}$}
+\nextgroupplot[xlabel={时间(slot)}, ylabel={温度($^\circ$C)}, ymin=20,ymax=78]
+\addplot[methodblue, very thick] table[x=slot,y=temp_rhc] {sim_trace.dat};
+\addplot[thermalred, thick, dashed] table[x=slot,y=temp_fcfs] {sim_trace.dat};
+\addplot[linegray, dotted, thick] coordinates {(0,70) (180,70)};
+\legend{\method{},固定队列,$T_{\max}$}
+\end{groupplot}
+\end{tikzpicture}
+\caption{热-电约束动机图。模拟数据展示固定队列策略在阴影区和高功耗任务集中释放阶段更容易造成电量快速下降和温度峰值升高，而热-电协同调度通过任务重排平滑功耗。}
+\label{fig:trace-motivation}
+\end{figure*}
+
+\subsection{任务级调度机会}
+
+DVFS 通过降低频率减少瞬时功耗，但固定队首任务仍会继续占用计算资源，任务执行时间被拉长，后续任务等待增加。间歇计算在达到暂停阈值时停止所有计算核心，虽然能够避免部分热/能违约，却直接损失吞吐。本文的任务级调度利用两个事实：第一，不同载荷任务的功耗、产热、时长和权重存在显著差异；第二，许多载荷处理流程可在自然数据边界切换。若调度器能看到未来 $H$ 个时隙资源状态，就可以主动选择更适合当前热-电状态的任务块执行，而不是被动调频或停机。
+
+\section{问题建模}
+
+\subsection{系统模型}
+
+考虑一个星载异构多核计算平台，核心集合为
+\begin{equation}
+  \mathcal{K}=\{1,2,\dots,C\},
+\end{equation}
+其中包含高性能核心 $\mathcal{K}^{\mathrm{hp}}$ 和低功耗核心 $\mathcal{K}^{\mathrm{lp}}$。系统运行在离散时间槽 $\mathcal{T}=\{1,2,\dots,T\}$ 上，时隙长度为 $\Delta t$。时隙 $t$ 的系统状态包括电池能量 $E(t)$、芯片温度 $T(t)$ 和就绪任务队列 $Q(t)$。外部输入包括太阳能采集功率 $P_{\mathrm{harv}}(t)$、平台基础功耗 $P_{\mathrm{base}}(t)$ 和等效环境热输入。
+
+\subsection{任务模型}
+
+任务集合为 $\mathcal{J}=\{1,2,\dots,N\}$。任务 $j$ 具有释放时刻 $r_j$、软截止期 $d_j$、权重 $w_j$，并被划分为 $M_j$ 个顺序执行任务块：
+\begin{equation}
+  \mathcal{B}_j=\{1,2,\dots,M_j\}.
+\end{equation}
+任务块 $(j,m)$ 在核心 $c$ 上的执行长度为 $\ell_{j,m,c}$，平均动态功耗为 $p_{j,m,c}$。任务块内部不可任意抢占，但不同任务块之间可以暂停、恢复、重排和重新分配核心。任务内部顺序约束要求块 $m+1$ 必须在块 $m$ 完成后才能开始。
+
+\begin{table}[t]
+\centering
+\caption{主要符号说明}
+\label{tab:notation}
+\begin{tabularx}{\linewidth}{p{0.27\linewidth}X}
+\toprule
+符号 & 含义 \\
+\midrule
+$\mathcal{J}$, $\mathcal{K}$ & 任务集合与处理核心集合 \\
+$r_j,d_j,w_j$ & 任务释放时刻、软截止期和重要性权重 \\
+$\ell_{j,m,c}$ & 任务块 $(j,m)$ 在核心 $c$ 上的执行长度 \\
+$p_{j,m,c}$ & 任务块 $(j,m)$ 在核心 $c$ 上的平均功耗 \\
+$E(t),E_{\min},E_{\max}$ & 电池能量、最低安全电量和最大容量 \\
+$T(t),T_{\max}$ & 芯片温度和温度上限 \\
+$P_{\mathrm{harv}}(t)$ & 太阳能采集功率 \\
+$H$ & 滚动预测窗口长度 \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{能量模型}
+
+时隙 $t$ 的计算功耗定义为
+\begin{equation}
+P_{\mathrm{com}}(t)=
+\sum_{c\in\mathcal{K}}\sum_{j\in\mathcal{J}}\sum_{m\in\mathcal{B}_j}
+p_{j,m,c}x_{j,m,t,c},
+\end{equation}
+其中 $x_{j,m,t,c}=1$ 表示任务块 $(j,m)$ 在时隙 $t$ 正在核心 $c$ 上执行。负载消耗能量和太阳能采集能量分别为
+\begin{align}
+E_{\mathrm{load}}(t)&=\left(P_{\mathrm{base}}(t)+P_{\mathrm{com}}(t)\right)\Delta t,\\
+E_{\mathrm{harv}}(t)&=P_{\mathrm{harv}}(t)\Delta t.
+\end{align}
+电池状态更新为
+\begin{equation}
+E(t)=\min\{E_{\max},\max\{E_{\min},E(t-1)+E_{\mathrm{harv}}(t)-E_{\mathrm{load}}(t)\}\}.
+\end{equation}
+能量约束风险可用能量赤字判断：
+\begin{equation}
+E_{\mathrm{deficit}}(t)=\max\{0,E_{\mathrm{load}}(t)-E_{\mathrm{harv}}(t)\}.
+\end{equation}
+当 $E_{\mathrm{deficit}}(t)>E(t-1)-E_{\min}$ 时，说明当前调度动作可能导致低于安全电量。
+
+\subsection{热模型}
+
+采用一阶离散热模型描述温度变化：
+\begin{equation}
+T(t+1)=T(t)+\frac{Q_{\mathrm{base}}(t)+P_{\mathrm{com}}(t)\Delta t+Q_{\mathrm{env}}(t)}{C_{\mathrm{th}}}
+-\eta\Delta t\left(T(t)-T_{\mathrm{amb}}(t)\right),
+\end{equation}
+其中 $C_{\mathrm{th}}$ 为等效热容量，$\eta$ 为冷却系数。为了在 MILP 中保持线性表达，本文也使用预测窗口内的累计热预算约束：
+\begin{equation}
+\sum_{u=t_0}^{\tau}P_{\mathrm{com}}(u)\Delta t \le B(\tau),\quad
+\forall \tau\in\{t_0,\dots,t_0+H-1\}.
+\end{equation}
+
+\subsection{优化目标}
+
+目标函数综合加权响应时间、拖期惩罚和窗口末端剩余工作量：
+\begin{equation}
+\min
+\alpha\sum_{j\in\mathcal{J}}w_j(C_j-r_j)
++\beta\sum_{j\in\mathcal{J}}w_jL_j
++\mu\sum_{j\in\mathcal{J}}w_jR_j(t_0+H),
+\label{eq:objective}
+\end{equation}
+其中 $C_j$ 为任务完成时刻，$L_j=\max(0,C_j-d_j)$ 为拖期，$R_j(t_0+H)$ 为窗口结束时的剩余工作量。第三项用于避免滚动窗口只关注当前短期收益而将大量工作推迟到窗口之外。
+
+\section{热-电协同滚动调度设计}
+
+\subsection{系统框架}
+
+图~\ref{fig:system} 展示 \method{} 的系统框架。调度器在每个时隙读取当前电量、温度和任务队列，并获取未来 $H$ 个时隙的太阳能输入、基础功耗和热预算预测。MILP 优化器生成整个窗口的任务块计划，但仿真器只执行当前时隙动作，随后更新任务进度和系统状态，并滚动到下一时隙重新求解。
+
+\begin{figure*}[t]
+\centering
+\begin{tikzpicture}[
+  font=\small,
+  box/.style={rounded corners=2pt, draw=linegray, very thick, fill=softgray, align=center, minimum height=0.95cm},
+  bluebox/.style={box, fill=methodblue!8},
+  greenbox/.style={box, fill=energygreen!8},
+  redbox/.style={box, fill=thermalred!8},
+  arrow/.style={-{Latex[length=3mm]}, very thick, draw=linegray}
+]
+\node[bluebox, minimum width=3.4cm] (env) {轨道环境预测\\日照/阴影、$P_{\mathrm{harv}}$};
+\node[bluebox, minimum width=3.3cm, right=0.8cm of env] (queue) {载荷任务队列\\tile / patch / burst};
+\node[redbox, minimum width=3.2cm, right=0.8cm of queue] (state) {状态观测\\$E(t)$, $T(t)$, 核心占用};
+\node[greenbox, minimum width=4.2cm, below=1.15cm of queue] (optimizer) {滚动时域 MILP 优化器\\任务重排 + 核心匹配 + 热-电约束};
+\node[box, minimum width=3.3cm, below=1.1cm of env] (energy) {能量模型\\电池容量、充放电};
+\node[box, minimum width=3.3cm, below=1.1cm of state] (thermal) {热模型\\温度累积、热预算};
+\node[box, minimum width=4.0cm, below=1.15cm of optimizer] (cores) {异构多核执行平台\\2 高性能核 + 2 低功耗核};
+\node[box, minimum width=3.3cm, right=0.9cm of cores] (metrics) {记录与评估\\时延、拖期、违约、求解时间};
+
+\draw[arrow] (env) -- (optimizer);
+\draw[arrow] (queue) -- (optimizer);
+\draw[arrow] (state) -- (optimizer);
+\draw[arrow] (energy) -- (optimizer);
+\draw[arrow] (thermal) -- (optimizer);
+\draw[arrow] (optimizer) -- node[right]{执行首时隙} (cores);
+\draw[arrow] (cores) -- (metrics);
+\draw[arrow] (cores.west) to[out=180,in=260] node[left]{功耗反馈} (energy.south);
+\draw[arrow] (cores.east) to[out=0,in=280] node[right]{产热反馈} (thermal.south);
+\end{tikzpicture}
+\caption{热-电协同滚动调度系统框架。该图对应 Li 等论文中的系统设计图，但本文控制对象从处理器频率扩展为任务块排序、启动时刻和核心分配。}
+\label{fig:system}
+\end{figure*}
+
+\subsection{决策变量与约束}
+
+定义二元启动变量
+\begin{equation}
+s_{j,m,t,c}\in\{0,1\},
+\end{equation}
+其中 $s_{j,m,t,c}=1$ 表示任务块 $(j,m)$ 在时隙 $t$ 于核心 $c$ 上启动。定义二元运行变量
+\begin{equation}
+x_{j,m,\tau,c}\in\{0,1\},
+\end{equation}
+其中 $x_{j,m,\tau,c}=1$ 表示任务块 $(j,m)$ 在时隙 $\tau$ 正在核心 $c$ 上执行。启动变量和运行变量满足
+\begin{equation}
+x_{j,m,\tau,c}=
+\sum_{t=\max(r_j,\tau-\ell_{j,m,c}+1)}^\tau s_{j,m,t,c}.
+\end{equation}
+每个任务块在窗口中至多启动一次：
+\begin{equation}
+\sum_{c\in\mathcal{K}}\sum_{t\in\mathcal{H}(t_0)}s_{j,m,t,c}\le 1.
+\end{equation}
+核心容量约束为
+\begin{equation}
+\sum_{j\in\mathcal{J}}\sum_{m\in\mathcal{B}_j}x_{j,m,t,c}\le 1,\quad
+\forall c\in\mathcal{K},\forall t\in\mathcal{H}(t_0).
+\end{equation}
+任务顺序、释放时间、完成时间、拖期、能量更新和热预算约束共同构成完整 \rhc{} 模型。
+
+\subsection{滚动求解流程}
+
+\begin{algorithm}[t]
+\caption{\rhcfull{} 滚动调度流程}
+\label{alg:rhc}
+\begin{algorithmic}[1]
+\State 初始化 $t_0\gets 1$，读取 $E(0)$、$T(0)$ 和任务集合
+\While{存在未完成任务且 $t_0\le T$}
+  \State 观测 $E(t_0-1)$、$T(t_0-1)$、$Q(t_0)$
+  \State 构造预测窗口 $\mathcal{H}(t_0)=\{t_0,\dots,t_0+H-1\}$
+  \State 预测 $P_{\mathrm{harv}}(\tau)$、$P_{\mathrm{base}}(\tau)$、$B(\tau)$
+  \State 建立目标函数~\eqref{eq:objective} 与所有调度、能量、热约束
+  \State 调用 Gurobi 求解 MILP，并记录状态码、耗时和 MIPGap
+  \If{存在可行解}
+    \State 仅执行 $t_0$ 时隙的任务块-核心分配
+  \Else
+    \State 执行安全回退策略，如空闲或低功耗任务优先
+  \EndIf
+  \State 更新任务进度、电量、温度和核心状态
+  \State $t_0\gets t_0+1$
+\EndWhile
+\end{algorithmic}
+\end{algorithm}
+
+\section{实现与实验设置}
+
+\subsection{模块化实现计划}
+
+工程实现遵循“基础仿真闭环优先、规则基线其次、Gurobi 主方法随后、学习方法最后”的顺序。表~\ref{tab:module-plan} 概括关键模块与论文实验部分的对应关系。该设计来自模块化代码实现计划，目的是保证每一轮实现都有可测试单元，并在没有 Gurobi license 时仍可运行基础仿真和规则基线。
+
+\begin{table*}[t]
+\centering
+\caption{工程模块与论文实验的对应关系}
+\label{tab:module-plan}
+\begin{tabular}{p{0.18\linewidth}p{0.25\linewidth}p{0.43\linewidth}}
+\toprule
+阶段 & 关键模块 & 论文作用 \\
+\midrule
+基础闭环 & \texttt{models/config/task\_factory/environment/energy/thermal/simulator/metrics} & 定义任务、核心、系统状态、轨道环境、能量热模型和统一指标，是所有实验方法的共同基础。 \\
+规则基线 & \texttt{baseline\_dvfs}, \texttt{baseline\_intermittent} & 实现固定队列下的设备级调频和暂停恢复策略，用于验证任务级重排收益。 \\
+Gurobi 方法 & \texttt{gurobi\_adapter}, \texttt{solver\_monitor}, \texttt{baseline\_fcfs\_gurobi}, \texttt{rhc\_milp\_gurobi} & 支撑主方法、强基线和求解速度统计。 \\
+可视化与批处理 & \texttt{visualization}, \texttt{experiment\_runner} & 批量运行场景、随机种子和方法组合，输出指标表与论文图。 \\
+学习扩展 & \texttt{dataset\_builder}, \texttt{tcn\_policy}, \texttt{constraint\_filter}, \texttt{hybrid\_scheduler} & 支撑大规模任务下的快速近似调度和安全过滤。 \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\subsection{实验参数}
+
+表~\ref{tab:params} 汇总默认实验参数。本文仿真内部统一使用焦耳表示能量，论文图表展示时转换为 Wh。
+
+\begin{table}[t]
+\centering
+\caption{默认仿真参数}
+\label{tab:params}
+\begin{tabularx}{\linewidth}{p{0.46\linewidth}X}
+\toprule
+参数 & 默认值 \\
+\midrule
+时隙长度 $\Delta t$ & 60 s \\
+预测窗口 $H$ & 12 slots \\
+仿真总时长 & 194 slots \\
+核心配置 & 2 高性能核 + 2 低功耗核 \\
+日照/阴影时长 & 61 / 36 slots \\
+$E_{\max}$, $E_{\min}$ & 144000 J, 115200 J \\
+初始电量 & 129600 J \\
+平台基础功耗 & 3.6 W \\
+太阳能峰值功率 & 14 W \\
+初始温度 / 温度上限 & $25^\circ$C / $70^\circ$C \\
+Gurobi TimeLimit & 5 s \\
+Gurobi MIPGap & 0.01 \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{任务集与场景}
+
+实验任务来自遥感载荷处理流程，满足非基础运行任务、非强实时任务、可拆分、可暂停恢复和具有时效价值衰减等条件。表~\ref{tab:tasks} 给出任务类型。
+
+\begin{table*}[t]
+\centering
+\caption{实验任务类型与负载特征}
+\label{tab:tasks}
+\begin{tabular}{p{0.08\linewidth}p{0.16\linewidth}p{0.28\linewidth}p{0.23\linewidth}p{0.10\linewidth}}
+\toprule
+编号 & 任务类型 & 负载与价值特征 & 块划分方式 & 权重 \\
+\midrule
+T1 & 云检测 & 中等 AI 推理，用于筛除低价值云覆盖图像 & 图像 tile 批处理 & 2 \\
+T2 & 云去除与压缩 & 多阶段流水线，中等负载 & 掩膜生成、有效区域筛选、压缩 & 2 \\
+T3 & SAR 船舶检测 & 高功耗、高产热、高时效价值 & SAR patch / burst & 5 \\
+T4 & 光学目标检测 & 中高 AI 推理，目标价值随时间衰减 & 图像 patch / ROI & 3 \\
+T5 & 变化检测 & 高功耗、高时效，多时相输入 & 前后时相 tile 对 & 5 \\
+T6 & 图像压缩 & 低到中等负载，临近下传窗口价值上升 & tile / strip & 1 \\
+T7 & SAR 后端处理 & 高功耗、多阶段后端处理 & 预处理、成像、后处理 & 4 \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+实验场景包括轻负载、混合负载、高压力、阴影区压力、大规模和消融场景。主实验使用混合负载场景，高压力场景提高 SAR、变化检测和 SAR 后端处理比例，阴影压力场景将任务集中释放在进入阴影区前后。
+
+\subsection{对比方法}
+
+本文比较六类方法：\rhcfull{} 是主方法；\fcfsg{} 固定 FCFS 顺序但使用 Gurobi 优化核心分配和启动时间；\dvfs{} 在固定队列下根据温度和电量阈值选择高/中/低频率；\intermittent{} 在达到暂停阈值时停止计算、恢复后继续执行；\tcns{} 用 Gurobi 轨迹监督训练 TCN 进行快速近似调度；\hybrid{} 在 Gurobi 超时或大规模任务场景下切换到 TCN 加约束过滤。
+
+\section{模拟实验评估}
+
+本节图表均由模拟数据生成，用于验证论文实验结论的表达方式。正式论文可用真实实验输出替换数值，但图表结构可保持不变。
+
+\subsection{主结果}
+
+表~\ref{tab:main-results} 给出混合负载场景下的模拟主结果。与固定队列基线相比，\rhcfull{} 通过任务重排和热-电前瞻约束降低响应时间和拖期惩罚，并显著减少热/能约束违反。DVFS 和间歇计算能够降低部分风险，但分别引入降频延迟和暂停等待。
+
+\begin{table*}[t]
+\centering
+\caption{混合负载场景 S2 的模拟结果}
+\label{tab:main-results}
+\begin{tabular}{lccccccc}
+\toprule
+方法 & 平均响应时间$\downarrow$ & 加权拖期$\downarrow$ & 吞吐量$\uparrow$ & 热违约$\downarrow$ & 能量违约$\downarrow$ & 暂停/降频次数$\downarrow$ & 核心利用率$\uparrow$ \\
+\midrule
+\intermittent{} & 42.8$\pm$3.6 & 188.4$\pm$21.5 & 0.112 & 2.1 & 1.8 & 17.4 & 52.6\% \\
+\dvfs{} & 38.5$\pm$3.1 & 151.2$\pm$18.7 & 0.125 & 1.2 & 1.1 & 24.8 & 61.3\% \\
+\fcfsg{} & 34.9$\pm$2.8 & 128.7$\pm$15.6 & 0.131 & 0.9 & 0.8 & 8.6 & 65.8\% \\
+\rhcfull{} & \textbf{27.6$\pm$2.2} & \textbf{73.4$\pm$10.1} & \textbf{0.158} & \textbf{0.1} & \textbf{0.0} & \textbf{2.3} & \textbf{72.5\%} \\
+\tcns{} & 30.9$\pm$2.7 & 91.7$\pm$13.2 & 0.149 & 0.3 & 0.2 & 3.8 & 70.8\% \\
+\hybrid{} & 28.4$\pm$2.3 & 79.2$\pm$11.0 & 0.156 & 0.1 & 0.1 & 2.8 & 72.0\% \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+  width=\linewidth,
+  height=4.6cm,
+  ybar,
+  bar width=7pt,
+  ylabel={归一化指标（越低越好）},
+  symbolic x coords={Intermittent,DVFS,FCFS-G,RHC,TCN,Hybrid},
+  xticklabels={Inter.,DVFS,FCFS-G,RHC,TCN,Hybrid},
+  xtick=data,
+  xticklabel style={font=\scriptsize},
+  ymin=0,ymax=1.15,
+  legend style={font=\scriptsize, at={(0.5,1.03)}, anchor=south, legend columns=2},
+  grid=major,
+  grid style={draw=linegray!18}
+]
+\addplot[fill=methodblue!65, draw=methodblue] coordinates {(Intermittent,1.00) (DVFS,0.90) (FCFS-G,0.82) (RHC,0.64) (TCN,0.72) (Hybrid,0.66)};
+\addplot[fill=thermalred!70, draw=thermalred] coordinates {(Intermittent,1.00) (DVFS,0.80) (FCFS-G,0.68) (RHC,0.39) (TCN,0.49) (Hybrid,0.42)};
+\legend{平均响应时间,加权拖期}
+\end{axis}
+\end{tikzpicture}
+\caption{主结果柱状图。模拟数据表明，任务级前瞻调度相比固定队列和设备级响应策略具有更低响应时间和拖期惩罚。}
+\label{fig:mainbar}
+\end{figure}
+
+\subsection{调度甘特图}
+
+图~\ref{fig:gantt} 给出一个窗口内的任务块执行示例。高功耗任务 T3、T5、T7 被分散到不同时间段，低功耗图像压缩和云检测任务填充到资源较紧张区间，体现任务重排和核心匹配效果。
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[x=0.17cm,y=0.52cm,font=\scriptsize]
+\fill[gray!12] (18,-0.25) rectangle (31,4.15);
+\node[gray!70] at (24.5,4.0) {阴影/热紧张窗口};
+\foreach \y/\name in {0/lp\_1,1/lp\_0,2/hp\_1,3/hp\_0} {
+  \draw[linegray!45] (0,\y) -- (48,\y);
+  \node[left] at (0,\y+0.22) {\name};
+}
+\foreach \x in {0,12,24,36,48} {
+  \draw[linegray!35] (\x,-0.2) -- (\x,3.8);
+  \node[below] at (\x,-0.2) {\x};
+}
+\fill[thermalred!72] (1,3) rectangle (8,3.42) node[midway,white] {T3-1};
+\fill[energygreen!78] (8,3) rectangle (14,3.42) node[midway,white] {T1};
+\fill[warnorange!82] (16,3) rectangle (23,3.42) node[midway,white] {T5};
+\fill[thermalred!72] (31,3) rectangle (40,3.42) node[midway,white] {T3-2};
+\fill[energygreen!78] (4,2) rectangle (12,2.42) node[midway,white] {T6};
+\fill[methodblue!70] (14,2) rectangle (21,2.42) node[midway,white] {T4};
+\fill[energygreen!78] (23,2) rectangle (30,2.42) node[midway,white] {T1};
+\fill[warnorange!82] (34,2) rectangle (43,2.42) node[midway,white] {T5};
+\fill[methodblue!70] (2,1) rectangle (10,1.42) node[midway,white] {T2};
+\fill[energygreen!78] (18,1) rectangle (26,1.42) node[midway,white] {T6};
+\fill[purple!72] (30,1) rectangle (39,1.42) node[midway,white] {T7};
+\fill[energygreen!78] (9,0) rectangle (17,0.42) node[midway,white] {T1};
+\fill[methodblue!70] (22,0) rectangle (30,0.42) node[midway,white] {T4};
+\fill[purple!72] (38,0) rectangle (46,0.42) node[midway,white] {T7};
+\node[below] at (24,-0.8) {时间(slot)};
+\end{tikzpicture}
+\caption{\method{} 调度甘特图示例。灰色区域表示资源紧张窗口，调度器倾向于安排低功耗任务并推迟部分高功耗任务。}
+\label{fig:gantt}
+\end{figure}
+
+\subsection{求解器可扩展性}
+
+图~\ref{fig:scale} 展示任务规模增加时 Gurobi 求解时间和最优解比例的变化。随着任务数量从 20 增加到 500，MILP 变量和约束数量快速增加，5 s 时间限制下最优解比例下降。TCN 推理时间保持毫秒级，\hybrid{} 的目标值差距随规模上升但仍保持可用。
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+  width=\linewidth,
+  height=4.7cm,
+  xlabel={任务数量},
+  ylabel={时间 / 比例 / 差距},
+  xmin=15,xmax=520,
+  ymin=0,ymax=105,
+  grid=major,
+  grid style={draw=linegray!18},
+  legend style={font=\scriptsize, at={(0.02,0.98)}, anchor=north west}
+]
+\addplot[methodblue, very thick, mark=*] table[x=tasks,y=gurobi_avg] {scale.dat};
+\addlegendentry{Gurobi平均耗时(s)}
+\addplot[thermalred, very thick, mark=square*] table[x=tasks,y=optimal_ratio] {scale.dat};
+\addlegendentry{最优解比例(\%)}
+\addplot[energygreen, very thick, mark=triangle*] table[x=tasks,y=tcn_ms] {scale.dat};
+\addlegendentry{TCN推理(ms)}
+\addplot[purple, thick, dashed, mark=diamond*] table[x=tasks,y=hybrid_gap] {scale.dat};
+\addlegendentry{Hybrid目标差距(\%)}
+\end{axis}
+\end{tikzpicture}
+\caption{任务规模对求解表现的影响。模拟数据支持“大规模场景需要学习近似或混合调度”的结论。}
+\label{fig:scale}
+\end{figure}
+
+\subsection{预测窗口敏感性}
+
+图~\ref{fig:horizon} 展示预测窗口长度 $H$ 的影响。窗口较短时调度器缺乏前瞻性，响应时间和拖期较高；窗口增加后性能改善，但求解时间上升、最优解比例下降。模拟数据表明 $H=12$ 是性能和求解复杂度之间的折中。
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+  width=\linewidth,
+  height=4.7cm,
+  xlabel={预测窗口 $H$ (slot)},
+  ylabel={指标值},
+  ymin=0,ymax=105,
+  grid=major,
+  grid style={draw=linegray!18},
+  legend style={font=\scriptsize, at={(0.02,0.98)}, anchor=north west}
+]
+\addplot[methodblue, very thick, mark=*] table[x=H,y=response] {horizon.dat};
+\addlegendentry{平均响应时间}
+\addplot[thermalred, very thick, mark=square*] table[x=H,y=tardiness] {horizon.dat};
+\addlegendentry{加权拖期/模拟缩放}
+\addplot[energygreen, very thick, mark=triangle*] table[x=H,y=opt_ratio] {horizon.dat};
+\addlegendentry{最优解比例(\%)}
+\addplot[purple, thick, dashed, mark=diamond*] table[x=H,y=solve_time] {horizon.dat};
+\addlegendentry{平均求解时间(s)}
+\end{axis}
+\end{tikzpicture}
+\caption{预测窗口敏感性。窗口过短导致短视，窗口过长增加求解压力，默认 $H=12$ 兼顾调度质量和求解速度。}
+\label{fig:horizon}
+\end{figure}
+
+\subsection{消融实验}
+
+表~\ref{tab:ablation} 展示模拟消融结果。去掉热约束会降低短期响应时间但显著增加热违约；去掉能量约束会造成能量违约；不允许任务重排退化为固定队列，拖期和响应时间明显恶化。
+
+\begin{table}[t]
+\centering
+\caption{消融实验模拟结果}
+\label{tab:ablation}
+\begin{tabular}{lccc}
+\toprule
+方法变体 & 响应时间$\downarrow$ & 热违约$\downarrow$ & 能量违约$\downarrow$ \\
+\midrule
+完整 \rhcfull{} & \textbf{27.6} & \textbf{0.1} & \textbf{0.0} \\
+去掉热约束 & 26.8 & 6.3 & 0.2 \\
+去掉能量约束 & 26.1 & 0.4 & 4.8 \\
+去掉剩余工作量惩罚 & 29.9 & 0.3 & 0.1 \\
+固定核心分配 & 32.1 & 1.1 & 0.7 \\
+不允许任务重排 & 34.9 & 0.9 & 0.8 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{学习型调度与混合策略}
+
+表~\ref{tab:tcn} 展示大规模场景中的 TCN 和混合策略模拟结果。TCN 推理速度远快于 Gurobi，但存在动作不可行和目标差距问题；混合策略通过优先使用 Gurobi 可行解、超时后切换 TCN 并经过约束过滤，在实时性和安全性之间取得折中。
+
+\begin{table}[t]
+\centering
+\caption{大规模场景学习型调度模拟结果}
+\label{tab:tcn}
+\begin{tabular}{lcccc}
+\toprule
+方法 & 决策时间(ms) & 动作可行率 & 目标差距 & 违约次数 \\
+\midrule
+\rhcfull{} & 5000 & 100.0\% & 0.0\% & 0.2 \\
+\tcns{} & \textbf{2.4} & 91.5\% & 8.7\% & 0.6 \\
+\hybrid{} & 18.6 & \textbf{98.1\%} & \textbf{3.2\%} & \textbf{0.3} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{相关工作}
+
+星上计算研究关注在有限功耗、算力、存储和通信资源下将部分遥感处理任务前移到卫星端，以减少下传压力并提升响应速度。已有研究表明，小卫星 COTS 计算设备虽然能显著提升计算能力，但其运行效率受到太阳能采集、电池容量和热降频共同影响。设备级功耗管理方法如 DVFS 能降低瞬时功耗，间歇计算能在资源不足时暂停执行，但二者通常不改变任务执行顺序，难以利用任务异构性。
+
+多核调度和边缘计算中的混合整数规划方法能够显式建模任务分配、资源容量和时延目标，但在在线场景下计算复杂度较高。滚动时域优化通过有限窗口反复求解，在前瞻性和实时性之间折中。学习型调度方法利用神经网络近似优化器输出，适合大规模快速决策，但必须结合约束过滤和安全回退机制。本文方法将这些思路引入热-电耦合的在轨任务调度问题中，强调任务级重排、热-电预测和异构核心匹配的协同作用。
+
+\section{结论}
+
+本文参考 Li 等关于实时卫星计算能量与热特性的论文组织形式，构建了一篇中文 LaTeX 论文框架，系统描述了热-电协同感知的在轨任务智能调度问题。本文提出的 \method{} 方法将任务块调度、异构多核分配、电池能量约束和热预算约束统一到滚动时域 MILP 模型中，并通过模拟数据展示其相较于固定队列、DVFS 和间歇计算基线在响应时间、拖期惩罚和约束安全性方面的潜在优势。后续工作将用真实实验运行结果替换本文模拟数据，并进一步完善 TCN 与混合调度策略在大规模任务场景下的泛化能力和安全性验证。
+
+\begin{thebibliography}{99}
+
+\bibitem{li2024realtime}
+Q. Li, S. Wang, C. Xu, X. Ma, M. Xu, A. Zhou, R. Xing, B. Yang, Z. Zhu, Y. Zhang, and X. Liu,
+``Exploring Real-Time Satellite Computing: From Energy and Thermal Perspectives,''
+2024.
+
+\bibitem{claricoats2018}
+J. Claricoats and S. M. Dakka,
+``Design of Power, Propulsion, and Thermal Sub-Systems for a 3U CubeSat Measuring Earth's Lower Thermosphere Composition,''
+\emph{Aerospace}, vol. 5, no. 2, 2018.
+
+\bibitem{bai2018tcn}
+S. Bai, J. Z. Kolter, and V. Koltun,
+``An Empirical Evaluation of Generic Convolutional and Recurrent Networks for Sequence Modeling,''
+arXiv:1803.01271, 2018.
+
+\bibitem{gurobi}
+Gurobi Optimization, LLC,
+``Gurobi Optimizer Reference Manual,''
+2026. [Online]. Available: \url{https://www.gurobi.com/documentation/}
+
+\bibitem{mpc}
+E. F. Camacho and C. Bordons,
+\emph{Model Predictive Control}.
+Springer, 2007.
+
+\bibitem{satelliteedge}
+M. Sheng, D. Zhou, R. Liu, Y. Wang, J. Li, and Z. Han,
+``A Survey on Satellite-Terrestrial Networks for 6G: Architectures, Applications, and Challenges,''
+\emph{IEEE Communications Surveys \& Tutorials}, 2023.
+
+\end{thebibliography}
+
+\end{document}
