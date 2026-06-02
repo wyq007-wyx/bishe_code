@@ -11,6 +11,31 @@ from .config import (
     load_config,
     load_config_from_mapping,
 )
+from .energy_model import (
+    EnergyModelError,
+    EnergyStepResult,
+    is_energy_feasible,
+    update_energy,
+    update_energy_from_config,
+)
+from .environment import (
+    EnvironmentError,
+    EnvironmentSlot,
+    OrbitEnvironment,
+    ensure_environment_slots,
+    environment_from_config,
+    generate_orbit_environment,
+)
+from .metrics import (
+    MetricsError,
+    TaskMetric,
+    compute_metrics,
+    compute_solver_metrics,
+    compute_task_metrics,
+    infer_task_completion_records,
+    metrics_dataframe,
+    task_metrics_rows,
+)
 from .models import (
     HIGH_PERFORMANCE_CORE_TYPE,
     LOW_POWER_CORE_TYPE,
@@ -22,6 +47,21 @@ from .models import (
     Task,
     TaskBlock,
     build_cores_from_type_counts,
+)
+from .scheduler_base import (
+    BaseScheduler,
+    SafeIdleScheduler,
+    SchedulerError,
+    SchedulerResult,
+    make_idle_decisions,
+    validate_scheduler_result,
+)
+from .simulator import (
+    SimulationError,
+    SimulationResult,
+    TaskCompletionRecord,
+    initial_state_from_config,
+    run_simulation,
 )
 from .task_factory import (
     HIGH_POWER_TASK_TYPE_IDS,
@@ -40,6 +80,14 @@ from .task_factory import (
     task_type_id_from_task,
     task_type_id_from_task_id,
 )
+from .thermal_model import (
+    ThermalModelError,
+    ThermalStepResult,
+    compute_thermal_budget_j,
+    is_thermal_feasible,
+    update_temperature,
+    update_temperature_from_config,
+)
 
 __all__ = [
     "ConfigBundle",
@@ -51,6 +99,23 @@ __all__ = [
     "default_config_path",
     "load_config",
     "load_config_from_mapping",
+    "EnvironmentError",
+    "EnvironmentSlot",
+    "OrbitEnvironment",
+    "ensure_environment_slots",
+    "environment_from_config",
+    "generate_orbit_environment",
+    "EnergyModelError",
+    "EnergyStepResult",
+    "is_energy_feasible",
+    "update_energy",
+    "update_energy_from_config",
+    "ThermalModelError",
+    "ThermalStepResult",
+    "compute_thermal_budget_j",
+    "is_thermal_feasible",
+    "update_temperature",
+    "update_temperature_from_config",
     "Task",
     "TaskBlock",
     "Core",
@@ -61,6 +126,25 @@ __all__ = [
     "ScheduleDecision",
     "ScheduleTrace",
     "SolverTrace",
+    "BaseScheduler",
+    "SafeIdleScheduler",
+    "SchedulerError",
+    "SchedulerResult",
+    "make_idle_decisions",
+    "validate_scheduler_result",
+    "SimulationError",
+    "SimulationResult",
+    "TaskCompletionRecord",
+    "initial_state_from_config",
+    "run_simulation",
+    "MetricsError",
+    "TaskMetric",
+    "compute_metrics",
+    "compute_solver_metrics",
+    "compute_task_metrics",
+    "infer_task_completion_records",
+    "metrics_dataframe",
+    "task_metrics_rows",
     "TaskFactoryError",
     "TaskTypeSpec",
     "ScenarioSpec",
