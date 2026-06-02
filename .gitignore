@@ -25,3 +25,10 @@ env/
 *.log
 *.tmp
 *.bak
+
+# Gurobi local license and solver debug artifacts
+gurobi.lic
+*.lp
+*.mps
+*.mst
+*.sol

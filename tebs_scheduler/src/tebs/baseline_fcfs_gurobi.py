@@ -150,7 +150,7 @@ class FcfsGurobiScheduler(BaseScheduler):
     ) -> tuple[Task, TaskBlock] | None:
         if not cores:
             return None
-        for task in sorted(tasks, key=lambda item: (item.release_time, item.task_id)):
+        for task in tasks:
             if task.task_id in self._completed_tasks:
                 continue
             if current_time < task.release_time:
