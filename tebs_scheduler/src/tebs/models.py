@@ -446,6 +446,8 @@ class SolverTrace:
     best_bound: float | None = None
     # 是否找到可行解（可与 status 结合判断“可行但未最优”）。
     has_feasible_solution: bool = False
+    # 分支定界节点数；非 MIP 求解或求解器未返回时为 None。
+    node_count: float | None = None
 
     def __post_init__(self) -> None:
         _require_non_negative_int(self.time_slot, "time_slot")
@@ -455,6 +457,8 @@ class SolverTrace:
             raise ValueError("solve_time_sec must be >= 0.")
         if self.mip_gap is not None and self.mip_gap < 0:
             raise ValueError("mip_gap must be >= 0 when provided.")
+        if self.node_count is not None and self.node_count < 0:
+            raise ValueError("node_count must be >= 0 when provided.")
 
 
 __all__ = [

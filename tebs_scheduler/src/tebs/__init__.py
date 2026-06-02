@@ -10,6 +10,11 @@ from .baseline_dvfs import (
     scaled_power_w,
     select_frequency_level,
 )
+from .baseline_fcfs_gurobi import (
+    FcfsGurobiError,
+    FcfsGurobiScheduler,
+    GurobiWindowAssignment,
+)
 from .baseline_intermittent import (
     FcfsIntermittentScheduler,
     IntermittentBaselineError,
@@ -35,6 +40,19 @@ from .energy_model import (
     is_energy_feasible,
     update_energy,
     update_energy_from_config,
+)
+from .gurobi_adapter import (
+    GurobiAdapterError,
+    GurobiSolveParams,
+    GurobiSolveResult,
+    GurobiUnavailableError,
+    apply_gurobi_params,
+    extract_solve_result,
+    is_gurobi_available,
+    map_gurobi_status,
+    optimize_gurobi_model,
+    require_gurobi,
+    solve_gurobi_model,
 )
 from .environment import (
     EnvironmentError,
@@ -75,12 +93,24 @@ from .scheduler_base import (
     make_idle_decisions,
     validate_scheduler_result,
 )
+from .rhc_milp_gurobi import (
+    RhcMilpGurobiError,
+    RhcMilpGurobiScheduler,
+    RhcObjectiveWeights,
+    RhcWindowAssignment,
+)
 from .simulator import (
     SimulationError,
     SimulationResult,
     TaskCompletionRecord,
     initial_state_from_config,
     run_simulation,
+)
+from .solver_monitor import (
+    SolverMonitorError,
+    SolverMonitorSummary,
+    solver_summary_dict,
+    summarize_solver_trace,
 )
 from .task_factory import (
     HIGH_POWER_TASK_TYPE_IDS,
@@ -117,6 +147,9 @@ __all__ = [
     "progress_increment_slots",
     "scaled_power_w",
     "select_frequency_level",
+    "FcfsGurobiError",
+    "FcfsGurobiScheduler",
+    "GurobiWindowAssignment",
     "FcfsIntermittentScheduler",
     "IntermittentBaselineError",
     "IntermittentPauseState",
@@ -143,6 +176,17 @@ __all__ = [
     "is_energy_feasible",
     "update_energy",
     "update_energy_from_config",
+    "GurobiAdapterError",
+    "GurobiSolveParams",
+    "GurobiSolveResult",
+    "GurobiUnavailableError",
+    "apply_gurobi_params",
+    "extract_solve_result",
+    "is_gurobi_available",
+    "map_gurobi_status",
+    "optimize_gurobi_model",
+    "require_gurobi",
+    "solve_gurobi_model",
     "ThermalModelError",
     "ThermalStepResult",
     "compute_thermal_budget_j",
@@ -166,11 +210,19 @@ __all__ = [
     "SchedulerResult",
     "make_idle_decisions",
     "validate_scheduler_result",
+    "RhcMilpGurobiError",
+    "RhcMilpGurobiScheduler",
+    "RhcObjectiveWeights",
+    "RhcWindowAssignment",
     "SimulationError",
     "SimulationResult",
     "TaskCompletionRecord",
     "initial_state_from_config",
     "run_simulation",
+    "SolverMonitorError",
+    "SolverMonitorSummary",
+    "solver_summary_dict",
+    "summarize_solver_trace",
     "MetricsError",
     "TaskMetric",
     "compute_metrics",

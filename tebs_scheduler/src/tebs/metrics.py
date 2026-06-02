@@ -165,6 +165,7 @@ def compute_solver_metrics(
             "p95_solve_time_sec": None,
             "avg_mip_gap": None,
             "p95_mip_gap": None,
+            "avg_node_count": None,
             "avg_objective_value": None,
         }
 
@@ -174,6 +175,7 @@ def compute_solver_metrics(
     objectives = [
         trace.objective_value for trace in solver_trace if trace.objective_value is not None
     ]
+    node_counts = [trace.node_count for trace in solver_trace if trace.node_count is not None]
     feasible_count = sum(
         1
         for trace, status in zip(solver_trace, statuses)
@@ -190,6 +192,7 @@ def compute_solver_metrics(
         "p95_solve_time_sec": _percentile(solve_times, 95),
         "avg_mip_gap": _mean(mip_gaps),
         "p95_mip_gap": _percentile(mip_gaps, 95),
+        "avg_node_count": _mean(node_counts),
         "avg_objective_value": _mean(objectives),
     }
 
